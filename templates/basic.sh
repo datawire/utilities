@@ -5,8 +5,11 @@
 set -e
 
 # Defaults
-install_source="{{{DEFAULT_SOURCE}}}"
-install_destination="{{{DEFAULT_DESTINATION}}}"
+default_source="{{{DEFAULT_SOURCE}}}"
+default_destination="{{{DEFAULT_DESTINATION}}}"
+
+install_source=
+install_destination=
 
 # Get the script directory
 SCRIPT_SOURCE="${0}"
@@ -62,15 +65,7 @@ step () {
 }
 
 substep () {
-    output 3 "-->  %s" "$1"
-}
-
-substep_ok() {
-    output 3 "${green}OK${normal}\n" ""
-}
-
-substep_skip() {
-    output 3 "${yellow}OK${normal}\n" "$1"
+    output 3 "-->  %s\n" "$1"
 }
 
 die() {
@@ -84,14 +79,14 @@ die() {
 # We can install from a URL or from a directory. The install_from_... 
 # functions set up the 'download' function to do the right thing.
 
-install_from_url () {   # OUTPUT IN $workdir
+install_from_url () {   # OUTPUT IN $workdir, $worksource
     URL="$1"
 
-    # msg "Installing from URL: $URL"
     install_source="${URL}"
+    worksource="URL ${URL}"     # OUTPUT
 
     download() {
-        msg "Downloading..."
+        step "Downloading..."
         work=$(mktemp -d ${TMPDIR:-/tmp}/datawire-installer-{{{PACKAGE_NAME}}}.XXXXXXXX)
 
         zipfile="${work}/install.zip"
@@ -101,29 +96,29 @@ install_from_url () {   # OUTPUT IN $workdir
 
         if [ $VERBOSITY -lt 1 ]; then
             CURLVERBOSITY="-s -S"
-        elif [ $VERBOSITY -gt 5 ]; then
+        elif [ $VERBOSITY -gt 2 ]; then
             CURLVERBOSITY=
         fi
 
         curl $CURLVERBOSITY -L ${URL} > "${zipfile}"
 
-        if [ $VERBOSITY -gt 2 ]; then
+        if [ $VERBOSITY -gt 5 ]; then
             echo "Downloaded:"
             unzip -t "${zipfile}"
         fi
 
         if unzip -q -j -d "${workdir}" "${zipfile}" >> "${work}/install.log" 2>&1; then
-            msg "Download succeeded"
+            step "Download succeeded"
         else
             die "Unable to download from ${URL}\n        check in ${work}/install.log for details."
         fi
     }
 }
 
-install_from_dir () {   # OUTPUT IN $workdir
+install_from_dir () {   # OUTPUT IN $workdir, $worksource
     workdir="$1"        # OUTPUT
+    worksource="directory ${workdir}"     # OUTPUT
 
-    # msg "Installing from directory ${dir}"
     install_source="${workdir}"
 
     download () {
@@ -156,6 +151,7 @@ do_installation () {
     target="${2}"
 
     run_script "${source}" "${target}" "preinstall"
+    step "Installing..."
 
     if has_script "${source}"; then
         run_script "${source}" "${target}" install
@@ -164,20 +160,19 @@ do_installation () {
     fi
 
     run_script "${source}" "${target}" "postinstall"
+
+    step 'Finished!'
 }
 
 while getopts ':d:f:t:qv' opt; do
     case $opt in
         d)  install_from_dir "$OPTARG"
-            echo "Installing from dir ${install_source}"
             ;;
 
         f)  install_from_url "$OPTARG"
-            echo "Installing from ${install_source}"
             ;;
 
         t)  install_destination="$OPTARG"
-            echo "Installing to ${install_destination}"
             ;;
 
         :)  echo "Option -$OPTARG requires an argument." >&2
@@ -204,14 +199,16 @@ if [ -z "$install_source" ]; then
 	    branch="$1"
 	    install_from_url "https://github.com/datawire/{{{PACKAGE_NAME}}}/archive/${branch}.zip"
     else
-        echo "no installation source" >&2
-        exit 1
+        install_from_url "${default_source}"
     fi
-else
-    install_from_url "${install_source}"
 fi
 
-msg "Installing from ${install_source}"
+if [ -z "$install_destination" ]; then
+    install_destination="${default_destination}"
+fi
+
+msg "Installing from ${worksource}"
+msg "Installing to   ${install_destination}"
 
 download
 do_installation "${workdir}" "${install_destination}"
