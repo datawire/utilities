@@ -152,7 +152,6 @@ do_installation () {
     source="${1}"
     target="${2}"
 
-    run_script "${source}" "${target}" "preinstall"
     step "Installing..."
 
     run_script pkgconf.sh "${source}" "${target}" "preinstall"
@@ -163,7 +162,7 @@ do_installation () {
         cp -pr "${source}" "${target}"
     fi
 
-    run_script "${source}" "${target}" "postinstall"
+    run_script pkgconf.sh "${source}" "${target}" "postinstall"
 
     step 'Finished!'
 }
