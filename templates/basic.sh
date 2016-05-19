@@ -128,18 +128,20 @@ install_from_dir () {   # OUTPUT IN $workdir, $worksource
 }
 
 has_script () {
-    source="$1"
+    script="$1"; shift
+    source="$1"; shift
 
-    test -f "${source}/pkgconf.sh"
+    test -f "${source}/${script}"
 }
 
 run_script () {
-    source="$1"
-    target="$2"
-    phase="$3"
+    script="$1"; shift
+    source="$1"; shift
+    target="$1"; shift
+    phase="$1"; shift
 
-    if has_script "${source}"; then
-        bash "${source}/pkgconf.sh" "${source}" "${target}" "${phase}"
+    if has_script "${script}" "${source}"; then
+        bash "${source}/${script}" "${source}" "${target}" "${phase}"
     else
         true
     fi
@@ -153,8 +155,10 @@ do_installation () {
     run_script "${source}" "${target}" "preinstall"
     step "Installing..."
 
-    if has_script "${source}"; then
-        run_script "${source}" "${target}" install
+    run_script pkgconf.sh "${source}" "${target}" "preinstall"
+
+    if has_script pkginstall.sh "${source}"; then
+        run_script pkginstall.sh "${source}" "${target}" install
     else
         cp -pr "${source}" "${target}"
     fi
