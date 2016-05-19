@@ -101,7 +101,7 @@ install_from_url () {   # OUTPUT IN $workdir
 
         if [ $VERBOSITY -lt 1 ]; then
             CURLVERBOSITY="-s -S"
-        elif [ $VERBOSITY -gt 2 ]; then
+        elif [ $VERBOSITY -gt 5 ]; then
             CURLVERBOSITY=
         fi
 
