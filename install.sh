@@ -20,6 +20,9 @@ while [ -h "$SCRIPT_SOURCE" ]; do # resolve $SCRIPT_SOURCE until the file is no 
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SCRIPT_SOURCE" )" && pwd )"
 
+####======== module output ========
+#### Module with a bunch of output primitives.
+
 # Check if stdout is a terminal...
 if [ -t 1 ]; then
 
@@ -65,7 +68,15 @@ step () {
 }
 
 substep () {
-    output 3 "-->  %s\n" "$1"
+    output 3 "-->  %s" "$1"
+}
+
+substep_ok() {
+    output 3 "${green}OK${normal}\n" ""
+}
+
+substep_skip() {
+    output 3 "${yellow}OK${normal}\n" "$1"
 }
 
 die() {
@@ -75,12 +86,63 @@ die() {
     printf "\n\n"
     exit 1
 }
+####======== module checks ========
+#### Machinery for checking for certain required stuff.
 
+required_commands () {
+    for cmd in $*; do
+        substep "Checking for ${cmd}: "
+        loc=$(command -v ${cmd} || true)
+        if [ -n "${loc}" ]; then
+            substep_ok
+        else
+            die "Cannot find ${cmd}, please install and try again."
+        fi
+    done
+}
+
+is_on_path () {
+    cmd="$1"; shift
+
+    substep "Checking for '${cmd}' on \$PATH: "
+    if command -v "${cmd}" >/dev/null 2>&1 ; then
+        die "Found '${cmd}' already on \$PATH, please (re)move to proceed."
+    else
+        substep_ok
+    fi
+}
+
+is_importable () {
+    module="$1"; shift
+
+    substep "Checking for '${module}' Python module pollution: "
+    set +e
+    python -c "import ${module}" >/dev/null 2>&1
+    result=$?
+    set -e
+    if [ "${result}" -eq 0 ]; then
+        die "Python module '${module}' already present, please remove to proceed."
+    else
+        substep_ok
+    fi
+}
+
+is_already_installed () {
+    substep "Checking for old utilities: "
+    if [ -e ${install_destination} ]; then
+        die "Install directory exists at '${install_destination}', please (re)move to proceed."
+    else
+        substep_ok
+    fi
+}
+####======== module core ========
 # We can install from a URL or from a directory. The install_from_... 
 # functions set up the 'download' function to do the right thing.
 
 install_from_url () {   # OUTPUT IN $workdir, $worksource
     URL="$1"
+
+    set -x
 
     install_source="${URL}"
     worksource="URL ${URL}"     # OUTPUT
@@ -100,18 +162,30 @@ install_from_url () {   # OUTPUT IN $workdir, $worksource
             CURLVERBOSITY=
         fi
 
-        curl $CURLVERBOSITY -L ${URL} > "${zipfile}"
+        curl "${CURLVERBOSITY}" ${CURLEXTRAARGS} -L "${URL}" > "${zipfile}"
 
         if [ $VERBOSITY -gt 5 ]; then
             echo "Downloaded:"
             unzip -t "${zipfile}"
         fi
 
-        if unzip -q -j -d "${workdir}" "${zipfile}" >> "${work}/install.log" 2>&1; then
+        if unzip -q -d "${workdir}" "${zipfile}" >> "${work}/install.log" 2>&1; then
             step "Download succeeded"
+
+            total_count=$(cd "${workdir}" ; ls -1 | wc -l)
+            pkg_count=$(cd "${workdir}" ; ls -1 | egrep "^utilities-" | wc -l)
+
+            if [ \( $total_count -eq 1 \) -a \( $pkg_count -eq 1 \) ]; then
+                # Silly GitHub is silly.
+                mv "${workdir}/utilities"-*/* "${workdir}"
+                rmdir "${workdir}/utilities"-*
+            fi
+
         else
             die "Unable to download from ${URL}\n        check in ${work}/install.log for details."
         fi
+
+        set +x
     }
 }
 
@@ -147,7 +221,8 @@ run_script () {
     fi
 }
 
-# Actually do the installation of the downloaded files
+####======== module install-simple ========
+#### Module to install shell files
 do_installation () {
     source="${1}"
     target="${2}"
@@ -166,6 +241,8 @@ do_installation () {
 
     step 'Finished!'
 }
+####======== module arguments ========
+#### Module to handle argument parsing
 
 while getopts ':d:f:t:qv' opt; do
     case $opt in
@@ -212,6 +289,12 @@ fi
 
 msg "Installing from ${worksource}"
 msg "Installing to   ${install_destination}"
+####======== modules finished ========
+
+
+step "Performing installation environment sanity checks..."
+required_commands curl unzip
+is_already_installed
 
 download
 do_installation "${workdir}" "${install_destination}"

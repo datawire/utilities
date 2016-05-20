@@ -17,13 +17,6 @@ if [ $VERBOSITY -gt 2 ]; then
 fi
 
 if [ "$phase" == "postinstall" ]; then
-	# Stupid unzip is stupid.
-	if [ ! -d "${dest}/templates" ]; then
-		mkdir "${dest}/templates"
-	fi
-
-	mv "${dest}/basic.sh" "${dest}/templates"
-
 	rm -f "${dest}/Makefile"
 	rm -f "${dest}/install.sh"
 	rm -f "${dest}/pkgconf.sh"
