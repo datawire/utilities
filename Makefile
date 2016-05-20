@@ -12,4 +12,3 @@ clean:
 	rm -f install.sh
 
 clobber: clean
-	rm -f 

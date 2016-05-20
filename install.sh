@@ -4,22 +4,6 @@
 
 set -e
 
-# Defaults
-default_source="https://github.com/datawire/utilities/archive/master.zip"
-default_destination="utilities"
-
-install_source=
-install_destination=
-
-# Get the script directory
-SCRIPT_SOURCE="${0}"
-while [ -h "$SCRIPT_SOURCE" ]; do # resolve $SCRIPT_SOURCE until the file is no longer a symlink
-  SCRIPT_DIR="$( cd -P "$( dirname "$SCRIPT_SOURCE" )" && pwd )"
-  SCRIPT_SOURCE="$(readlink "$SCRIPT_SOURCE")"
-  [[ $SCRIPT_SOURCE != /* ]] && SCRIPT_SOURCE="$SCRIPT_DIR/$SCRIPT_SOURCE" # if $SCRIPT_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
-done
-SCRIPT_DIR="$( cd -P "$( dirname "$SCRIPT_SOURCE" )" && pwd )"
-
 ####======== module output ========
 #### Module with a bunch of output primitives.
 
@@ -136,13 +120,29 @@ is_already_installed () {
     fi
 }
 ####======== module core ========
+#### CORE MODULES -- include this first.
+
+# Defaults
+default_source="https://github.com/datawire/utilities/archive/master.zip"
+default_destination="utilities"
+
+install_source=
+install_destination=
+
+# Get the script directory
+SCRIPT_SOURCE="${0}"
+while [ -h "$SCRIPT_SOURCE" ]; do # resolve $SCRIPT_SOURCE until the file is no longer a symlink
+  SCRIPT_DIR="$( cd -P "$( dirname "$SCRIPT_SOURCE" )" && pwd )"
+  SCRIPT_SOURCE="$(readlink "$SCRIPT_SOURCE")"
+  [[ $SCRIPT_SOURCE != /* ]] && SCRIPT_SOURCE="$SCRIPT_DIR/$SCRIPT_SOURCE" # if $SCRIPT_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SCRIPT_SOURCE" )" && pwd )"
+
 # We can install from a URL or from a directory. The install_from_... 
 # functions set up the 'download' function to do the right thing.
 
 install_from_url () {   # OUTPUT IN $workdir, $worksource
     URL="$1"
-
-    set -x
 
     install_source="${URL}"
     worksource="URL ${URL}"     # OUTPUT
@@ -162,7 +162,7 @@ install_from_url () {   # OUTPUT IN $workdir, $worksource
             CURLVERBOSITY=
         fi
 
-        curl "${CURLVERBOSITY}" ${CURLEXTRAARGS} -L "${URL}" > "${zipfile}"
+        curl ${CURLVERBOSITY} ${CURLEXTRAARGS} -L "${URL}" > "${zipfile}"
 
         if [ $VERBOSITY -gt 5 ]; then
             echo "Downloaded:"
@@ -177,15 +177,15 @@ install_from_url () {   # OUTPUT IN $workdir, $worksource
 
             if [ \( $total_count -eq 1 \) -a \( $pkg_count -eq 1 \) ]; then
                 # Silly GitHub is silly.
-                mv "${workdir}/utilities"-*/* "${workdir}"
-                rmdir "${workdir}/utilities"-*
+                one_dir_up=$(dirname "${workdir}")/"utilities"
+                mv "${workdir}/utilities"-* "${one_dir_up}"
+                rm -rf "${workdir}"
+                mv "${one_dir_up}" "${workdir}"
             fi
 
         else
             die "Unable to download from ${URL}\n        check in ${work}/install.log for details."
         fi
-
-        set +x
     }
 }
 
@@ -293,7 +293,7 @@ msg "Installing to   ${install_destination}"
 
 
 step "Performing installation environment sanity checks..."
-required_commands curl unzip
+required_commands curl egrep unzip
 is_already_installed
 
 download
