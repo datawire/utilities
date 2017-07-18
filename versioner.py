@@ -110,11 +110,17 @@ class VersionDelta(object):
         else:
             return 0
 
+    def __lt__(self, other):
+        return self.__cmp__(other) < 0
+
+    def __gt__(self, other):
+        return self.__cmp__(other) > 0
+
     def __unicode__(self):
         return "<VersionDelta %s>" % self.tag
 
     def __str__(self):
-        return unicode(self)
+        return self.__unicode__()
 
 class ReleaseDelta(object):
     FIX   = VersionDelta( (0,0,1), Version.next_patch, "[FIX]")
@@ -218,8 +224,12 @@ class ReleaseDelta(object):
 
             version = finalDelta.xform(version)
 
+            self.log.debug("version:           %s" % version)
+
             if self.magic_pre:
                 pre = self.vbr.version.prerelease
+
+                self.log.debug("magic check:      '%s'" % str(pre))
 
                 if pre:
                     pre = pre[0]
@@ -230,13 +240,18 @@ class ReleaseDelta(object):
                         else:
                             pre = "b" + str(int(pre[1:]) + 1)
 
-                    self.log.debug("magic prerelease:  %s" % pre)
+                    self.log.debug("magic prerelease:  %s" % str(pre))
                     version.prerelease = (pre,)
+                else:
+                    version.prerelease = ("b1",)
             elif self.pre_release:
                 version.prerelease = (self.pre_release,)
 
+            self.log.debug("final prerelease:  %s" % str(version.prerelease))
+
             if self.build:
                 version.build = (self.build,)
+                self.log.debug("final build:       %s" % str(version.build))
 
             self.log.debug("version has to change from %s to %s" %
                            (self.vbr.version, version))
